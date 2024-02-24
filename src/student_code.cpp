@@ -1,10 +1,25 @@
 #include "student_code.h"
 #include "mutablePriorityQueue.h"
+#include <iostream>
 
 using namespace std;
 
 namespace CGL
 {
+
+
+    Vector2D lerp2D(Vector2D a, Vector2D b, double d) {
+
+        return d * a + (1 - d) * b;
+
+    }
+
+    Vector3D lerp3D(Vector3D a, Vector3D b, double d) {
+
+        return d * a + (1 - d) * b;
+
+    }
+
 
   /**
    * Evaluates one step of the de Casteljau's algorithm using the given points and
@@ -16,7 +31,19 @@ namespace CGL
   std::vector<Vector2D> BezierCurve::evaluateStep(std::vector<Vector2D> const &points)
   { 
     // TODO Part 1.
-    return std::vector<Vector2D>();
+
+      vector<Vector2D> vec(points.size() - 1);
+
+      for (int i = 0; i < vec.size(); i++) {
+          Vector2D cur = points.at(i);
+          Vector2D next = points.at(i + 1);
+
+          vec.at(i) = lerp2D(cur, next, t);
+
+      }
+     
+      return vec;
+    //return std::vector<Vector2D>();
   }
 
   /**
@@ -30,7 +57,18 @@ namespace CGL
   std::vector<Vector3D> BezierPatch::evaluateStep(std::vector<Vector3D> const &points, double t) const
   {
     // TODO Part 2.
-    return std::vector<Vector3D>();
+
+      vector<Vector3D> vec(points.size() - 1);
+
+      for (int i = 0; i < vec.size(); i++) {
+          Vector3D cur = points.at(i);
+          Vector3D next = points.at(i + 1);
+
+          vec.at(i) = lerp3D(cur, next, t);
+
+      }
+
+      return vec;
   }
 
   /**
@@ -43,6 +81,15 @@ namespace CGL
   Vector3D BezierPatch::evaluate1D(std::vector<Vector3D> const &points, double t) const
   {
     // TODO Part 2.
+
+      vector<Vector3D> vec(points.begin(), points.end());
+
+      while (vec.size() > 1) {
+          vec = evaluateStep(vec, t);
+      }
+
+      return vec.at(0);
+
     return Vector3D();
   }
 
@@ -55,8 +102,18 @@ namespace CGL
    */
   Vector3D BezierPatch::evaluate(double u, double v) const 
   {  
-    // TODO Part 2.
-    return Vector3D();
+      int n = controlPoints.size();
+
+      vector<Vector3D> vec(n);
+
+      for (int i = 0; i < n; i++) {
+          vec.at(i) = evaluate1D(controlPoints.at(i), u);
+      }
+
+      return evaluate1D(vec, v);
+
+
+    // TODO Part 2
   }
 
   Vector3D Vertex::normal( void ) const
