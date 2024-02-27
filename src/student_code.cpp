@@ -232,13 +232,23 @@ namespace CGL
 
 			VertexIter m = newVertex();
 			m->getVertex()->position = (b->getVertex()->position + c->getVertex()->position) * 0.5;
+			m->getVertex()->newPosition = e0->getEdge()->newPosition;
+			m->getVertex()->isNew = true;
 
 			FaceIter amc = newFace();
 			FaceIter bma = newFace();
 
 			EdgeIter am_e = newEdge();
 			EdgeIter bm_e = newEdge();
-			EdgeIter cm_e = newEdge();
+
+			am_e->getEdge()->isNew = true;
+			bm_e->getEdge()->isNew = false;
+			e0->getEdge()->isNew = false;
+
+			am_e->getEdge()->alrSplit = true;
+			bm_e->getEdge()->alrSplit = true;
+			e0->getEdge()->alrSplit = true;
+			//EdgeIter cm_e = newEdge();
 
 
 			HalfedgeIter am = newHalfedge(), ma = newHalfedge();
@@ -254,23 +264,23 @@ namespace CGL
 
 			am_e->getEdge()->halfedge() = am;
 			bm_e->getEdge()->halfedge() = bm;
-			cm_e->getEdge()->halfedge() = mc;
+			e0->getEdge()->halfedge() = mc;
 
 			//
 			ma->setNeighbors(ab, am, m, am_e, bma);
 			mb->setNeighbors(cb->next(), bm, m, bm_e, cbd);
-			mc->setNeighbors(ca, cb, m, cm_e, amc);
+			mc->setNeighbors(ca, cb, m, e0, amc);
 
 
 			am->setNeighbors(mc, ma, a, am_e, amc);
 			bm->setNeighbors(ma, mb, b, bm_e, bma);
-			cb->setNeighbors(mb, mc, c, cm_e, cbd);
+			cb->setNeighbors(mb, mc, c, e0, cbd);
 
 			ab->setNeighbors(bm, ab->getHalfedge()->twin(), a, ab->getHalfedge()->edge(), bma);
 			ca->setNeighbors(am, ca->getHalfedge()->twin(), c, ca->getHalfedge()->edge(), amc);
 			//make cb the new cm.
 
-			deleteEdge(e0);
+			//deleteEdge(e0);
 			deleteHalfedge(bc);
 			deleteFace(abc);
 
@@ -371,17 +381,40 @@ namespace CGL
 		// a vertex of the original mesh.
 		cout << "here\n";
 		for (VertexIter v = mesh.verticesBegin(); v != mesh.verticesEnd(); v++) {
-			double n = (double)v->getVertex()->degree();
-			double u = 3.0 / (8.0 * n);
 
-			if (n == 3.0) {
-				u = 3.0 / 16.0;
+			if (v->getVertex()->isBoundary()) {
 
-				
+				Vector3D total = Vector3D(0, 0, 0);
+
+				HalfedgeIter h = v->getVertex()->halfedge();
+				do
+				{
+					// check if the current halfedge is on the boundary
+					if (h->isBoundary() || h->twin()->isBoundary()){
+						total += h->twin()->vertex()->getVertex()->position;
+					}
+
+
+					// move to the next halfedge around the vertex
+					h = h->twin()->next();
+				} while (h != v->getVertex()->halfedge()); // done iterating over halfedges
+
+				v->getVertex()->newPosition = 3.0 / 4.0 * (v->getVertex()->position) + 1.0 / 8.0 * (total);
+
+
+			}
+			else {
+				double n = (double)v->getVertex()->degree();
+				double u = 3.0 / (8.0 * n);
+
+				if (n == 3.0) {
+					u = 3.0 / 16.0;
+				}
+
+				v->getVertex()->newPosition = (1.0 - n * u) * v->getVertex()->position + (u * v->getVertex()->neighborSum());
 			}
 
-
-			v->getVertex()->newPosition = (1.0 - n * u) * v->getVertex()->position + (u * v->getVertex()->neighborSum());
+			
 
 			v->getVertex()->isNew = false;
 
@@ -397,16 +430,27 @@ namespace CGL
 
 			HalfedgeIter h = e->getEdge()->halfedge();
 			HalfedgeIter twin = h->getHalfedge()->twin();
-
-			VertexIter a = h->getHalfedge()->next()->getHalfedge()->next()->getHalfedge()->vertex();
-			VertexIter d = twin->getHalfedge()->next()->getHalfedge()->next()->getHalfedge()->vertex();
 			VertexIter b = h->getHalfedge()->vertex();
 			VertexIter c = twin->getHalfedge()->vertex();
 
-			e->getEdge()->newPosition = (a->getVertex()->position + d->getVertex()->position) * 1.0 / 8.0 + (b->getVertex()->position + c->getVertex()->position) * 3.0 / 8.0;
-			//cout << e->getEdge() << a->getVertex()->position << " " << b->getVertex()->position << " " << c->getVertex()->position << " " << d->getVertex()->position << nl;
-			e->getEdge()->alrSplit = false;
-			e->getEdge()->isNew = false;
+			if (h->getHalfedge()->isBoundary() || twin->getHalfedge()->isBoundary()) {
+				e->getEdge()->newPosition = (b->getVertex()->position + c->getVertex()->position) * 1.0 / 2.0;
+				e->getEdge()->alrSplit = false;
+				e->getEdge()->isNew = false;
+			}
+			else {
+				VertexIter a = h->getHalfedge()->next()->getHalfedge()->next()->getHalfedge()->vertex();
+				VertexIter d = twin->getHalfedge()->next()->getHalfedge()->next()->getHalfedge()->vertex();
+				
+
+				e->getEdge()->newPosition = (a->getVertex()->position + d->getVertex()->position) * 1.0 / 8.0 + (b->getVertex()->position + c->getVertex()->position) * 3.0 / 8.0;
+				//cout << e->getEdge() << a->getVertex()->position << " " << b->getVertex()->position << " " << c->getVertex()->position << " " << d->getVertex()->position << nl;
+				e->getEdge()->alrSplit = false;
+				e->getEdge()->isNew = false;
+			}
+
+
+			
 		}
 			// 3. Split every edge in the mesh, in any order. For future reference, we're also going to store some
 			// information about which subdivide edges come from splitting an edge in the original mesh, and which edges
