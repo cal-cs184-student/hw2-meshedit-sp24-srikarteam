@@ -113,8 +113,6 @@ namespace CGL
 		}
 
 		return evaluate1D(vec, v);
-
-
 		// TODO Part 2
 	}
 
@@ -370,6 +368,88 @@ namespace CGL
 
 
 
+	void sqthreeupsample(HalfedgeMesh& mesh) {
+		for (FaceIter f = mesh.facesBegin(); f != mesh.facesEnd(); f++) {
+			f->getFace()->setNew(false);		
+		}
+		
+		//split faces
+		for (FaceIter f = mesh.facesBegin(); f != mesh.facesEnd(); f++) {
+			if (!f->getFace()->isNew()) {
+				
+				HalfedgeIter ab = f->getFace()->halfedge();
+				HalfedgeIter bc = ab->next();
+				HalfedgeIter ca = bc->next();
+
+				VertexIter a = ab->vertex();
+				VertexIter b = bc->vertex();
+				VertexIter c = ca->vertex();
+
+				Vector3D total = ab->vertex()->getVertex()->position + bc->vertex()->getVertex()->position + ca->vertex()->getVertex()->position;
+				total /= 3.0;
+
+				HalfedgeIter am = mesh.newHalfedge();
+				HalfedgeIter ma = mesh.newHalfedge();
+				HalfedgeIter bm = mesh.newHalfedge();
+				HalfedgeIter mb = mesh.newHalfedge();
+				HalfedgeIter cm = mesh.newHalfedge();
+				HalfedgeIter mc = mesh.newHalfedge();
+
+				EdgeIter am_e = mesh.newEdge();
+				EdgeIter bm_e = mesh.newEdge();
+				EdgeIter cm_e = mesh.newEdge();
+
+				//FaceIter amb = f
+				FaceIter cmb = mesh.newFace();
+				FaceIter amc = mesh.newFace();
+
+				VertexIter m = mesh.newVertex();
+				m->getVertex()->position = total;
+				m->getVertex()->halfedge() = ma;
+
+				ab->setNeighbors(bm, ab->twin(), a, ab->edge(), f);
+				bc->setNeighbors(cm, bc->twin(), b, bc->edge(), cmb);
+				ca->setNeighbors(am, ca->twin(), c, ca->edge(), amc);
+
+				am->setNeighbors(mc, ma, a, am_e, amc);
+				bm->setNeighbors(ma, mb, b, bm_e, f);
+				cm->setNeighbors(mb, mc, c, cm_e, cmb);
+
+				ma->setNeighbors(ab, am, m, am_e, f);
+				mb->setNeighbors(bc, bm, m, bm_e, cmb);
+				mc->setNeighbors(ca, cm, m, cm_e, amc);
+
+				am_e->getEdge()->halfedge() = am;
+				bm_e->getEdge()->halfedge() = bm;
+				cm_e->getEdge()->halfedge() = cm;
+
+				am_e->isNew = true;
+				bm_e->isNew = true;
+				cm_e->isNew = true;
+
+				ab->getHalfedge()->edge()->isNew = false;
+				bc->getHalfedge()->edge()->isNew = false;
+				ca->getHalfedge()->edge()->isNew = false;
+
+				f->getFace()->halfedge() = ab;
+				amc->getFace()->halfedge() = ca;
+				cmb->getFace()->halfedge() = bc;
+
+				f->getFace()->setNew(true);
+				amc->getFace()->setNew(true);
+				cmb->getFace()->setNew(true);
+
+			}
+		}
+
+		for (EdgeIter e = mesh.edgesBegin(); e != mesh.edgesEnd(); e++) {
+			if (!e->getEdge()->isNew) {
+				mesh.flipEdge(e);
+			}
+		}
+
+	}
+
 	void MeshResampler::upsample(HalfedgeMesh& mesh)
 	{
 		// TODO Part 6.
@@ -379,7 +459,9 @@ namespace CGL
 		// 1. Compute new positions for all the vertices in the input mesh, using the Loop subdivision rule,
 		// and store them in Vertex::newPosition. At this point, we also want to mark each vertex as being
 		// a vertex of the original mesh.
-		cout << "here\n";
+		/*sqthreeupsample(mesh);
+		return;*/
+
 		for (VertexIter v = mesh.verticesBegin(); v != mesh.verticesEnd(); v++) {
 
 			if (v->getVertex()->isBoundary()) {
@@ -393,8 +475,6 @@ namespace CGL
 					if (h->isBoundary() || h->twin()->isBoundary()){
 						total += h->twin()->vertex()->getVertex()->position;
 					}
-
-
 					// move to the next halfedge around the vertex
 					h = h->twin()->next();
 				} while (h != v->getVertex()->halfedge()); // done iterating over halfedges
@@ -413,8 +493,6 @@ namespace CGL
 
 				v->getVertex()->newPosition = (1.0 - n * u) * v->getVertex()->position + (u * v->getVertex()->neighborSum());
 			}
-
-			
 
 			v->getVertex()->isNew = false;
 
@@ -442,9 +520,7 @@ namespace CGL
 				VertexIter a = h->getHalfedge()->next()->getHalfedge()->next()->getHalfedge()->vertex();
 				VertexIter d = twin->getHalfedge()->next()->getHalfedge()->next()->getHalfedge()->vertex();
 				
-
 				e->getEdge()->newPosition = (a->getVertex()->position + d->getVertex()->position) * 1.0 / 8.0 + (b->getVertex()->position + c->getVertex()->position) * 3.0 / 8.0;
-				//cout << e->getEdge() << a->getVertex()->position << " " << b->getVertex()->position << " " << c->getVertex()->position << " " << d->getVertex()->position << nl;
 				e->getEdge()->alrSplit = false;
 				e->getEdge()->isNew = false;
 			}
@@ -458,9 +534,6 @@ namespace CGL
 			// the original mesh---otherwise, we'll end up splitting edges that we just split (and the loop will never end!)
 		
 		EdgeIter end = mesh.edgesEnd();
-		int ee = 0;
-
-		cout << mesh.nEdges() << nl;
 
 		for (EdgeIter e = mesh.edgesBegin(); e != end; e++) {
 
@@ -470,8 +543,6 @@ namespace CGL
 
 		}
 			// 4. Flip any new edge that connects an old and new vertex.
-		
-		cout << mesh.nEdges() << nl;
 
 		for (EdgeIter e = mesh.edgesBegin(); e != mesh.edgesEnd(); e++) {
 
@@ -485,21 +556,14 @@ namespace CGL
 				if (e->getEdge()->isNew) {
 					mesh.flipEdge(e);
 				}
-				
 			}
-
-
 		}
-
-
 
 			// 5. Copy the new vertex positions into final Vertex::position.
 
 		for (VertexIter v = mesh.verticesBegin(); v != mesh.verticesEnd(); v++) {
 			v->getVertex()->position = v->getVertex()->newPosition;
 		}
-
-
 
 		}
 	}

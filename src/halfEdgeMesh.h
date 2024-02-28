@@ -352,6 +352,8 @@ namespace CGL
 	{
 	public:
 
+		
+
 		/**
 		 * initializes the face, possibly setting its boundary flag
 		 * (by default, a Face does not encode a boundary loop)
@@ -403,7 +405,16 @@ namespace CGL
 
 		Matrix4x4 quadric;
 
+		bool isNew() {
+			return _isNew;
+		}
+
+		void setNew(bool newNew) {
+			_isNew = newNew;
+		}
+
 	protected:
+		bool _isNew;
 		HalfedgeIter _halfedge; ///< one of the halfedges of this face
 		bool _isBoundary;       ///< boundary flag
 	};
